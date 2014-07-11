@@ -11,10 +11,8 @@ import time
 class TestEmitter(Autobahn_Client):
     '''
     classdocs
-    '''
-    testPing_lock = Event()
-    testPing_value = None
-    
+    '''    
+    PARSER_FILE = "../config/definitions.xml"
     uRC_MODULE_NAME = "TestEmitter"
     worker = None
     
@@ -33,12 +31,12 @@ class TestEmitter(Autobahn_Client):
         self.publish("uRC.testing.receiver.data", data)
         
     def testPing(self, i):
-        return self.remoteCall("uRC.testing.receiver.rpc", "ping", i)
+        return self.remoteCall("uRC.testing.receiver.rpc.TestReceiver", {"ping":"ping","index":i})
         
     def onDisconnect(self):
         self.worker.interrupt()
         Autobahn_Client.onDisconnect(self)
-
+        
 class EmitterThread(Thread):
     emitter = None
     interrupted = False
@@ -59,18 +57,20 @@ class EmitterThread(Thread):
         for i in range(10):
             if self.interrupted:
                 break
+            time.sleep(2)
             print "==run # " + str(i) + "=="
             
             print "publishing..."
-            self.emitter.publishTestData("This is TestEmitter testing subscription 'uRC.testing.receiver.data', seq:{}".format(i))
+            self.emitter.publishTestData({"message":"This is " + self.emitter.uRC_MODULE_NAME + " testing subscription 'uRC.testing.receiver.data'", "index":i})
             time.sleep(2)
             
             print "calling rpc..."
             print self.emitter.testPing(i)
             print "continue"
-            time.sleep(2)
         self.emitter.leave()
         
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     Autobahn_Client.startup_client(TestEmitter)
+#     Thread(target=Autobahn_Client.startup_client, args=[TestEmitter]).start()
+#     Thread(target=Autobahn_Client.startup_client, args=[TestEmitter]).start()

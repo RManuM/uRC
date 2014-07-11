@@ -11,13 +11,16 @@ import logging
 from threading import Event
 import time
 import random
+from generic.python.websocket.Autobahn_Dataparser import Autobahn_Dataparser
 
 class Autobahn_Client(ApplicationSession):
     '''
     classdocs
     '''
     uRC_MODULE_NAME = "abstract_client"
+    PARSER_FILE = "./config/definitions.xml"
     LOGGER = None
+    _parser = None
     
     _pendingRPCs = {}
 
@@ -61,7 +64,7 @@ class Autobahn_Client(ApplicationSession):
         pass
 
     def _startupComponents(self):
-        pass
+        self._parser = Autobahn_Dataparser(self.LOGGER, self.PARSER_FILE)
     
     def remoteCall(self, url , *args, **kwargs):
         call_lock = Event()

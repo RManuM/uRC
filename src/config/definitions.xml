@@ -1,0 +1,11 @@
+<root>
+	<topic name='uRC.testing.receiver.data'>
+		<attribute name='message'>string</attribute>
+		<attribute name='index'>int</attribute>
+	</topic>
+	<slot name='uRC.testing.receiver.rpc'>
+		<attribute name='ping'>string</attribute>
+		<attribute name='index'>int</attribute>
+	</slot>
+</root>
+        
