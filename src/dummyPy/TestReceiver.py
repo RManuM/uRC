@@ -16,7 +16,7 @@ class TestReceiver(Autobahn_Client):
     
     def _initSubscriptions(self):
         Autobahn_Client._initSubscriptions(self)
-        self._subscriptions["uRC.testing.receiver.data"] = self.handleTopic
+        self._subscriptions["uRC.sensor.PROPS"] = self.handleTopic
         
     def _initRpcs(self):
         Autobahn_Client._initRpcs(self)
@@ -26,18 +26,21 @@ class TestReceiver(Autobahn_Client):
         Autobahn_Client._startupComponents(self)
         
     def handleTopic(self, data):
-        if self._parser.parse("uRC.testing.receiver.data", data):
+        if self._parser.parse("uRC.sensor.PROPS", data):
             print "received: ", data
         else:
-            print "received message contains error"
+            print "received message contains error", data
         
     def handleRPC(self, data):
+        result = ""
         if self._parser.parse("uRC.testing.receiver.rpc", data):
             print "RPC: Data:" + str(data)
             time.sleep(3)
-            return "pong:" + str(data["index"])
+            result = "pong:" + str(data["index"])
         else:
-            print "received rpc contains error"
+            print "RPC: Data contains error: " + str(data)
+            result = "received rpc contains error"
+        return {"ping":result}
         
         
 if __name__ == "__main__":

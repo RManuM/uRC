@@ -1,11 +1,80 @@
 <root>
-	<topic name='uRC.testing.receiver.data'>
-		<attribute name='message'>string</attribute>
-		<attribute name='index'>int</attribute>
-	</topic>
-	<slot name='uRC.testing.receiver.rpc'>
-		<attribute name='ping'>string</attribute>
-		<attribute name='index'>int</attribute>
-	</slot>
+	<!-- Test-slots -->
+	<module name="testing">
+		<topic name='uRC.testing.receiver.data'>
+			<attribute name='message' optional="false">string</attribute>
+			<attribute name='index'>int</attribute>
+		</topic>
+		<slot name='uRC.testing.receiver.rpc'>
+			<attribute name='ping'>string</attribute>
+			<attribute name='index'>int</attribute>
+		</slot>
+		<response name='uRC.testing.receiver.rpc'>
+			<attribute name='ping'>string</attribute>
+		</response>
+	</module>
+	
+	<!-- Sensors -->
+	<module name="sensor">
+		<!-- RPC -->
+		<slot name="uRC.sensor.TRIGGER">
+		</slot>
+		<response name="uRC.sensor.TRIGGER">
+			<attribute name='success'>boolean</attribute>
+		</response>
+		
+		
+		<slot name="uRC.sensor.STATUS.GET">
+		</slot>
+		<response name="uRC.sensor.STATUS.GET">
+			<attribute name='triggering'>boolean</attribute>
+		</response>
+		
+		
+		<slot name="uRC.sensor.PROPS.GET">
+		</slot>
+		
+		<response name="uRC.sensor.PROPS.GET">
+			<attribute name="orientation" optional="true">
+				<attribute name='pitch'>float</attribute>
+				<attribute name='roll'>float</attribute>
+				<attribute name='yaw'>float</attribute>
+			</attribute>
+		</response>
+		
+		<slot name="uRC.sensor.PROPS.SET">
+			<attribute name="orientation" optional="true">
+				<attribute name='pitch'>float</attribute>
+				<attribute name='roll'>float</attribute>
+				<attribute name='yaw'>float</attribute>
+			</attribute>
+		</slot>
+		
+		<response name="uRC.sensor.PROPS.SET">
+			<attribute name='success'>boolean</attribute>
+		</response>
+		
+		<!-- Topics -->
+		<topic name='uRC.sensor.TRIGGER.COMPLETED'>
+		</topic>
+		
+		<topic name='uRC.sensor.TRIGGER.ERROR'>
+			<attribute name='error_code'>int</attribute>
+			<attribute name='error_message'>string</attribute>
+		</topic>
+		
+		<topic name='uRC.sensor.PROPS'>
+			<attribute name="orientation" optional="true">
+				<attribute name='pitch'>float</attribute>
+				<attribute name='roll'>float</attribute>
+				<attribute name='yaw'>float</attribute>
+			</attribute>
+		</topic>
+		
+		<topic name='uRC.sensor.STATUS'>
+			<attribute name='triggering'>boolean</attribute>
+		</topic>
+	</module>
+	
 </root>
         

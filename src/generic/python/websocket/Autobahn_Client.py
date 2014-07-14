@@ -12,6 +12,7 @@ from threading import Event
 import time
 import random
 from generic.python.websocket.Autobahn_Dataparser import Autobahn_Dataparser
+import atexit
 
 class Autobahn_Client(ApplicationSession):
     '''
@@ -27,11 +28,15 @@ class Autobahn_Client(ApplicationSession):
     _subscriptions = dict()
     _rpcs = {}
     
+#     @staticmethod
+#     def startup_client(implementation, server_url="ws://127.0.0.1:8080/ws", server_name="realm1"):
+#         runner = ApplicationRunner(server_url, server_name)
+#         runner.run(implementation)
+        
     @staticmethod
     def startup_client(implementation, server_url="ws://127.0.0.1:8080/ws", server_name="realm1"):
         runner = ApplicationRunner(server_url, server_name)
         runner.run(implementation)
-        
         
     @inlineCallbacks
     def onJoin(self, details):
@@ -54,26 +59,41 @@ class Autobahn_Client(ApplicationSession):
         self.LOGGER.info("client ready")
 
     def onDisconnect(self):
+        ## TODO: closing pendings rpcs
+        for key, value in self._pendingRPCs.items():
+            print "removing rpc"
+            call_lock, data = value
+            data = {"error_message":"closing connection"}
+            self._pendingRPCs[key] = (call_lock, data)
+            call_lock.set()
+            
         self.LOGGER.info("disconnected")
         reactor.stop()  # @UndefinedVariable FIXME: Actually this method exists
         
     def _initSubscriptions(self):
-        self._subscriptions["uRC.testing.hello"] = self.on_hello
+        pass
         
     def _initRpcs(self):
         pass
 
     def _startupComponents(self):
+        atexit.register(self.leave)
         self._parser = Autobahn_Dataparser(self.LOGGER, self.PARSER_FILE)
+    
+    def publish(self, topic, *args, **kwargs):
+        self.LOGGER.debug("PUB-fired")
+        return ApplicationSession.publish(self, topic, *args, **kwargs)
     
     def remoteCall(self, url , *args, **kwargs):
         call_lock = Event()
         call_lock.clear()
         callback_id = url+str(time.time())+str(random.randint(0,10000))
         self._pendingRPCs[callback_id] = (call_lock, None)
+        self.LOGGER.debug("RPC-request: " + url)
         self._remoteCall_fire(url, callback_id, *args, **kwargs)
         call_lock.wait()
         call_lock, value = self._pendingRPCs.pop(callback_id)
+        self.LOGGER.debug("RPC-response: " + url)
         return value
     
     @inlineCallbacks
@@ -86,9 +106,6 @@ class Autobahn_Client(ApplicationSession):
         value = result
         self._pendingRPCs[callback_id] = (call_lock, value)
         call_lock.set()
-        
-    def on_hello(self, params):
-        print params
 
         
 if __name__ == "__main__":

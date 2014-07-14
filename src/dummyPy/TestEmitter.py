@@ -28,11 +28,15 @@ class TestEmitter(Autobahn_Client):
         self.worker.start()
         
     def publishTestData(self, data):
-        self.publish("uRC.testing.receiver.data", data)
+        self.publish("uRC.sensor.PROPS", data)
         
     def testPing(self, i):
-        return self.remoteCall("uRC.testing.receiver.rpc.TestReceiver", {"ping":"ping","index":i})
-        
+        result = self.remoteCall("uRC.testing.receiver.rpc.TestReceiver", {"ping":"ping","index":i})
+        if self._parser.parse_response("uRC.testing.receiver.rpc", result):
+            return result["ping"]
+        else:
+            return "error occured: no valid data received"
+    
     def onDisconnect(self):
         self.worker.interrupt()
         Autobahn_Client.onDisconnect(self)
@@ -61,16 +65,18 @@ class EmitterThread(Thread):
             print "==run # " + str(i) + "=="
             
             print "publishing..."
-            self.emitter.publishTestData({"message":"This is " + self.emitter.uRC_MODULE_NAME + " testing subscription 'uRC.testing.receiver.data'", "index":i})
+            #data = {"message":"This is " + self.emitter.uRC_MODULE_NAME + " testing subscription 'uRC.testing.receiver.data'", "index":i}
+            data ={"orientation":{"pitch":0.0, "roll":0.0,"yaw":0.0}}
+            self.emitter.publishTestData(data)
+            print "done"
             time.sleep(2)
             
+            
             print "calling rpc..."
-            print self.emitter.testPing(i)
-            print "continue"
+            result = self.emitter.testPing(i)
+            print "done, result:", result
         self.emitter.leave()
         
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     Autobahn_Client.startup_client(TestEmitter)
-#     Thread(target=Autobahn_Client.startup_client, args=[TestEmitter]).start()
-#     Thread(target=Autobahn_Client.startup_client, args=[TestEmitter]).start()
