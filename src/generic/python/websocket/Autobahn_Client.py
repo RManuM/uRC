@@ -12,7 +12,6 @@ from threading import Event
 import time
 import random
 from generic.python.websocket.Autobahn_Dataparser import Autobahn_Dataparser
-import atexit
 
 class Autobahn_Client(ApplicationSession):
     '''
@@ -28,15 +27,11 @@ class Autobahn_Client(ApplicationSession):
     _subscriptions = dict()
     _rpcs = {}
     
-#     @staticmethod
-#     def startup_client(implementation, server_url="ws://127.0.0.1:8080/ws", server_name="realm1"):
-#         runner = ApplicationRunner(server_url, server_name)
-#         runner.run(implementation)
-        
     @staticmethod
     def startup_client(implementation, server_url="ws://127.0.0.1:8080/ws", server_name="realm1"):
         runner = ApplicationRunner(server_url, server_name)
         runner.run(implementation)
+        
         
     @inlineCallbacks
     def onJoin(self, details):
@@ -77,7 +72,6 @@ class Autobahn_Client(ApplicationSession):
         pass
 
     def _startupComponents(self):
-        atexit.register(self.leave)
         self._parser = Autobahn_Dataparser(self.LOGGER, self.PARSER_FILE)
     
     def publish(self, topic, *args, **kwargs):

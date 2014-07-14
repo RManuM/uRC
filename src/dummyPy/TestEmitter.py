@@ -28,7 +28,7 @@ class TestEmitter(Autobahn_Client):
         self.worker.start()
         
     def publishTestData(self, data):
-        self.publish("uRC.sensor.PROPS", data)
+        self.publish("uRC.testing.receiver.data", data)
         
     def testPing(self, i):
         result = self.remoteCall("uRC.testing.receiver.rpc.TestReceiver", {"ping":"ping","index":i})
