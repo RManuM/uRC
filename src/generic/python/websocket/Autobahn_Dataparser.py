@@ -43,7 +43,6 @@ class Autobahn_Dataparser(object):
                 </slot>
             </root>"""
             root = etree.fromstring(xml_definition)
-            print etree.tostring(root, pretty_print=True)
             
         for element in root.iter("topic"):
             definition = self.__generateDefinition(element)

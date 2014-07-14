@@ -65,8 +65,7 @@ class EmitterThread(Thread):
             print "==run # " + str(i) + "=="
             
             print "publishing..."
-            #data = {"message":"This is " + self.emitter.uRC_MODULE_NAME + " testing subscription 'uRC.testing.receiver.data'", "index":i}
-            data ={"orientation":{"pitch":0.0, "roll":0.0,"yaw":0.0}}
+            data = {"message":"This is " + self.emitter.uRC_MODULE_NAME + " testing subscription 'uRC.testing.receiver.data'", "index":i}
             self.emitter.publishTestData(data)
             print "done"
             time.sleep(2)
@@ -79,4 +78,8 @@ class EmitterThread(Thread):
         
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    Autobahn_Client.startup_client(TestEmitter)
+    def startup():
+        Autobahn_Client.startup_client(TestEmitter)
+#     Thread(target=startup).start()
+    startup()
+    print "continue main"

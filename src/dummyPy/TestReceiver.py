@@ -32,16 +32,17 @@ class TestReceiver(Autobahn_Client):
             print "received message contains error", data
         
     def handleRPC(self, data):
-        result = ""
-        if self._parser.parse("uRC.testing.receiver.rpc", data):
-            print "RPC: Data:" + str(data)
-            time.sleep(3)
-            result = "pong:" + str(data["index"])
-        else:
-            print "RPC: Data contains error: " + str(data)
-            result = "received rpc contains error"
-        return {"ping":result}
-        
+        def function(data):
+            result = ""
+            if self._parser.parse("uRC.testing.receiver.rpc", data):
+                print "RPC: Data:" + str(data)
+                time.sleep(3)
+                result = "pong:" + str(data["index"])
+            else:
+                print "RPC: Data contains error: " + str(data)
+                result = "received rpc contains error"
+            return {"ping":result}
+        return self._handle_RPC(function, data)
         
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

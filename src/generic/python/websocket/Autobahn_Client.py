@@ -8,8 +8,9 @@ from twisted.internet.defer import inlineCallbacks
 
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
 import logging
-from threading import Event
+from threading import Event, Thread
 import time
+import signal
 import random
 from generic.python.websocket.Autobahn_Dataparser import Autobahn_Dataparser
 
@@ -22,7 +23,9 @@ class Autobahn_Client(ApplicationSession):
     LOGGER = None
     _parser = None
     
-    _pendingRPCs = {}
+    _pendingAnswers = {}
+    _rpcsToComplete = 0
+    
 
     _subscriptions = dict()
     _rpcs = {}
@@ -54,14 +57,6 @@ class Autobahn_Client(ApplicationSession):
         self.LOGGER.info("client ready")
 
     def onDisconnect(self):
-        ## TODO: closing pendings rpcs
-        for key, value in self._pendingRPCs.items():
-            print "removing rpc"
-            call_lock, data = value
-            data = {"error_message":"closing connection"}
-            self._pendingRPCs[key] = (call_lock, data)
-            call_lock.set()
-            
         self.LOGGER.info("disconnected")
         reactor.stop()  # @UndefinedVariable FIXME: Actually this method exists
         
@@ -72,7 +67,25 @@ class Autobahn_Client(ApplicationSession):
         pass
 
     def _startupComponents(self):
+        signal.signal(signal.SIGINT, self.shutdown)
         self._parser = Autobahn_Dataparser(self.LOGGER, self.PARSER_FILE)
+        
+    def _rpc_received(self):
+        self._rpcsToComplete += 1
+        
+    def _rpc_completed(self):
+        self._rpcsToComplete -= 1
+        
+    def _handle_RPC(self, function, data):
+        self._rpc_received()
+        try:
+            result = function(data)
+            self._rpc_completed()
+            return result
+        except Exception as e:
+            self._rpc_completed()
+            raise e
+        
     
     def publish(self, topic, *args, **kwargs):
         self.LOGGER.debug("PUB-fired")
@@ -82,11 +95,11 @@ class Autobahn_Client(ApplicationSession):
         call_lock = Event()
         call_lock.clear()
         callback_id = url+str(time.time())+str(random.randint(0,10000))
-        self._pendingRPCs[callback_id] = (call_lock, None)
+        self._pendingAnswers[callback_id] = (call_lock, None)
         self.LOGGER.debug("RPC-request: " + url)
         self._remoteCall_fire(url, callback_id, *args, **kwargs)
         call_lock.wait()
-        call_lock, value = self._pendingRPCs.pop(callback_id)
+        call_lock, value = self._pendingAnswers.pop(callback_id)
         self.LOGGER.debug("RPC-response: " + url)
         return value
     
@@ -96,10 +109,19 @@ class Autobahn_Client(ApplicationSession):
         self._remoteCall_catch(callback_id, result)
         
     def _remoteCall_catch(self, callback_id, result):
-        call_lock, value = self._pendingRPCs[callback_id]  # @UnusedVariable
+        call_lock, value = self._pendingAnswers[callback_id]  # @UnusedVariable
         value = result
-        self._pendingRPCs[callback_id] = (call_lock, value)
+        self._pendingAnswers[callback_id] = (call_lock, value)
         call_lock.set()
+        
+    def shutdown(self, *args, **kwargs):
+        def try_shutdown():
+            while self._rpcsToComplete > 0:
+                self.LOGGER.info("waiting for remote-procedures to complete....")
+                time.sleep(1)
+            self.leave()
+        self.LOGGER.info("shutting down component")
+        Thread(target=try_shutdown).start()
 
         
 if __name__ == "__main__":
