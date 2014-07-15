@@ -7,8 +7,8 @@ Created on 02.07.2014
 import serial
 import traceback
 import threading
-from uav_rc.dlr.falcon.Protocol import Message, Command, ACK_MAP
-from uav_rc.dlr.falcon.Protocol import CAM, LLSTATUS, IMUCALC, GPS, GPSADV, IMURAW, RCDAT, CTRLOUT, CURWAY, X60, X61, X62, X64
+from AscTec.Protocol import Message, Command, ACK_MAP
+from AscTec.Protocol import CAM, LLSTATUS, IMUCALC, GPS, GPSADV, IMURAW, RCDAT, CTRLOUT, CURWAY, X60, X61, X62, X64
 import time
 import logging
 
