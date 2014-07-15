@@ -14,26 +14,45 @@ import signal
 import random
 from generic.python.websocket.Autobahn_Dataparser import Autobahn_Dataparser
 
+
+from autobahn.twisted.wamp import ApplicationSessionFactory
+from autobahn.twisted.websocket import WampWebSocketClientFactory         
+from twisted.internet.endpoints import clientFromString
+from autobahn.wamp import types
+
 class Autobahn_Client(ApplicationSession):
     '''
     classdocs
     '''
-    uRC_MODULE_NAME = "abstract_client"
-    PARSER_FILE = "./config/definitions.xml"
-    LOGGER = None
-    _parser = None
-    
-    _pendingAnswers = {}
-    _rpcsToComplete = 0
-    
-
-    _subscriptions = dict()
-    _rpcs = {}
+    def __init__(self, module_name, parser_file, config=types.ComponentConfig(u"anonymous")):
+        self.uRC_MODULE_NAME = module_name
+        self.PARSER_FILE = parser_file
+        self.LOGGER = None
+        self._parser = None
+        
+        self._pendingAnswers = {}
+        self._pendingRPCs = {}
+        self._rpcsToComplete = 0
+        
+        self._subscriptions = dict()
+        self._rpcs = {}
+        
+        ApplicationSession.__init__(self, config=config)
     
     @staticmethod
     def startup_client(implementation, server_url="ws://127.0.0.1:8080/ws", server_name="realm1"):
         runner = ApplicationRunner(server_url, server_name)
         runner.run(implementation)
+        
+    @staticmethod
+    def startup_client_2(implementation, server_url="ws://localhost:8080/ws", server_bindings="tcp:localhost:8080"):
+        session_factory = ApplicationSessionFactory()
+        session_factory.session = implementation
+        
+        transport_factory = WampWebSocketClientFactory(session_factory, server_url)
+
+        client = clientFromString(reactor, server_bindings)
+        client.connect(transport_factory)
         
         
     @inlineCallbacks
@@ -85,7 +104,6 @@ class Autobahn_Client(ApplicationSession):
         except Exception as e:
             self._rpc_completed()
             raise e
-        
     
     def publish(self, topic, *args, **kwargs):
         self.LOGGER.debug("PUB-fired")

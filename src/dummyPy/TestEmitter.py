@@ -7,14 +7,19 @@ from generic.python.websocket.Autobahn_Client import Autobahn_Client
 import logging
 from threading import Thread, Event
 import time
+from autobahn.wamp import types
 
 class TestEmitter(Autobahn_Client):
     '''
     classdocs
-    '''    
-    PARSER_FILE = "../config/definitions.xml"
-    uRC_MODULE_NAME = "TestEmitter"
-    worker = None
+    '''
+    def __init__(self, config=types.ComponentConfig(u"anonymous")):
+        PARSER_FILE = "../config/definitions.xml"
+        uRC_MODULE_NAME = "TestEmitter"
+        Autobahn_Client.__init__(self, uRC_MODULE_NAME, PARSER_FILE, config=config)
+        
+        
+        self.worker = None
     
     def _initSubscriptions(self):
         Autobahn_Client._initSubscriptions(self)
@@ -31,7 +36,7 @@ class TestEmitter(Autobahn_Client):
         self.publish("uRC.testing.receiver.data", data)
         
     def testPing(self, i):
-        result = self.remoteCall("uRC.testing.receiver.rpc.TestReceiver", {"ping":"ping","index":i})
+        result = self.remoteCall("uRC.testing.receiver.rpc.TestReceiver", {"ping":self.uRC_MODULE_NAME,"index":i})
         if self._parser.parse_response("uRC.testing.receiver.rpc", result):
             return result["ping"]
         else:
@@ -40,6 +45,18 @@ class TestEmitter(Autobahn_Client):
     def onDisconnect(self):
         self.worker.interrupt()
         Autobahn_Client.onDisconnect(self)
+        
+class TestEmitter_cp(TestEmitter):
+    def _startupComponents(self):
+        TestEmitter._startupComponents(self)
+        self.uRC_MODULE_NAME = "TestEmitter2"
+    
+    def testPing(self, i):
+        result = self.remoteCall("uRC.testing.receiver.rpc.TestReceiver2", {"ping":self.uRC_MODULE_NAME,"index":i})
+        if self._parser.parse_response("uRC.testing.receiver.rpc", result):
+            return result["ping"]
+        else:
+            return "error occured: no valid data received"
         
 class EmitterThread(Thread):
     emitter = None
@@ -70,7 +87,6 @@ class EmitterThread(Thread):
             print "done"
             time.sleep(2)
             
-            
             print "calling rpc..."
             result = self.emitter.testPing(i)
             print "done, result:", result
@@ -78,8 +94,33 @@ class EmitterThread(Thread):
         
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    def startup():
-        Autobahn_Client.startup_client(TestEmitter)
-#     Thread(target=startup).start()
-    startup()
-    print "continue main"
+#     Autobahn_Client.startup_client(TestEmitter)
+
+    ########################################################################
+    
+    from autobahn.twisted.choosereactor import install_reactor
+    reactor = install_reactor()
+    Autobahn_Client.startup_client_2(TestEmitter)
+    Autobahn_Client.startup_client_2(TestEmitter_cp)
+    reactor.run()
+    
+    ########################################################################
+    
+#     from autobahn.twisted.choosereactor import install_reactor
+#     reactor = install_reactor()
+#     print("Running on reactor {}".format(reactor))
+#      
+#     from autobahn.twisted.wamp import ApplicationSessionFactory
+#     session_factory1 = ApplicationSessionFactory()
+#     session_factory1.session = TestEmitter
+#      
+#     session_factory2 = ApplicationSessionFactory()
+#     session_factory2.session = TestEmitter_cp
+#      
+#     from autobahn.twisted.websocket import WampWebSocketClientFactory
+#     transport_factory1 = WampWebSocketClientFactory(session_factory1, "ws://127.0.0.1:8080/ws")
+#      
+#     from twisted.internet.endpoints import clientFromString
+#     client1 = clientFromString(reactor, "tcp:127.0.0.1:8080")
+#     client1.connect(transport_factory1)
+#     reactor.run()
