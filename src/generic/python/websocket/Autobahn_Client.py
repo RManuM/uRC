@@ -3,7 +3,7 @@ Created on 10.07.2014
 
 @author: mend_ma
 '''
-from twisted.internet import reactor
+from twisted.internet import reactor, threads
 from twisted.internet.defer import inlineCallbacks
 
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
@@ -89,21 +89,11 @@ class Autobahn_Client(ApplicationSession):
         signal.signal(signal.SIGINT, self.shutdown)
         self._parser = Autobahn_Dataparser(self.LOGGER, self.PARSER_FILE)
         
-    def _rpc_received(self):
-        self._rpcsToComplete += 1
-        
-    def _rpc_completed(self):
+    def _handle_RPC(self, function, data):        
+        self._rpcsToComplete +=1
+        result = function(data)
         self._rpcsToComplete -= 1
-        
-    def _handle_RPC(self, function, data):
-        self._rpc_received()
-        try:
-            result = function(data)
-            self._rpc_completed()
-            return result
-        except Exception as e:
-            self._rpc_completed()
-            raise e
+        return result
     
     def publish(self, topic, *args, **kwargs):
         self.LOGGER.debug("PUB-fired")

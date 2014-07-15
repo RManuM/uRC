@@ -101,26 +101,5 @@ if __name__ == "__main__":
     from autobahn.twisted.choosereactor import install_reactor
     reactor = install_reactor()
     Autobahn_Client.startup_client_2(TestEmitter)
-    Autobahn_Client.startup_client_2(TestEmitter_cp)
+#     Autobahn_Client.startup_client_2(TestEmitter_cp)
     reactor.run()
-    
-    ########################################################################
-    
-#     from autobahn.twisted.choosereactor import install_reactor
-#     reactor = install_reactor()
-#     print("Running on reactor {}".format(reactor))
-#      
-#     from autobahn.twisted.wamp import ApplicationSessionFactory
-#     session_factory1 = ApplicationSessionFactory()
-#     session_factory1.session = TestEmitter
-#      
-#     session_factory2 = ApplicationSessionFactory()
-#     session_factory2.session = TestEmitter_cp
-#      
-#     from autobahn.twisted.websocket import WampWebSocketClientFactory
-#     transport_factory1 = WampWebSocketClientFactory(session_factory1, "ws://127.0.0.1:8080/ws")
-#      
-#     from twisted.internet.endpoints import clientFromString
-#     client1 = clientFromString(reactor, "tcp:127.0.0.1:8080")
-#     client1.connect(transport_factory1)
-#     reactor.run()
