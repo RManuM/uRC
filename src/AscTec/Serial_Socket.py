@@ -3,12 +3,11 @@ Created on 02.07.2014
 
 @author: mend_ma
 '''
-
+from AscTec.Serial_Protocol import CAM, LLSTATUS, IMUCALC, GPSADV, CURWAY
 import serial
 import traceback
 import threading
 from AscTec.Serial_Protocol import Message, Command, ACK_MAP
-from AscTec.Serial_Protocol import CAM, LLSTATUS, IMUCALC, GPS, GPSADV, IMURAW, RCDAT, CTRLOUT, CURWAY, X60, X61, X62, X64
 import time
 import logging
 
@@ -26,11 +25,11 @@ SENDING_INTERVALL = 0.3
 READING_PAUSE = 0.01
 
 class Serial_Socket(object):
-    '''   This class offers a serial socket and pulls data from the drone   '''
-    serial = None
+    '''   This class offers a _serial socket and pulls data from the drone   '''
     
-    def __init__(self, payload_socket, uav_socket, *args, **argv):
-        ## initializing serial data
+    def __init__(self, parent):
+        self._connecting_instanze = parent
+        ## initializing _serial data
         self.__baud = BAUDRATE
         self.__comport = COMPORT
         self.__databits = DATABITS
@@ -42,22 +41,19 @@ class Serial_Socket(object):
         
         ## internal state
         self.__onMission = False
-        self.connected = False                  ## is the drone connected?
-        self.uav_socket = uav_socket            ##  the abstract UAV to emit signals
-        self.payload_socket = payload_socket    ##  the abstract UAV to emit signals
+        self._connected = False                  ## is the drone _connected?
         
         self.__sendLock = threading.Lock()      ## lock for handling the sendingbuffer
-        self.writeBuffer = list()
+        self._writeBuffer = list()
+        self._serial = None
     
     ##########################################################################################
     ## Connection handling
     ##########################################################################################
     
-    def connectDrone(self, port, autopublish=None, sending_intervall=None, poll_intervall=None):
-        ''' Trys to connect a drone to the serial port specified by this class'''
+    def connectDrone(self, port, sending_intervall=None, poll_intervall=None):
+        ''' Trys to connect a drone to the _serial port specified by this class'''
         
-        if autopublish is not None:
-            self.__autopublish = autopublish
         if sending_intervall is not None:
             self.__sendingIntervall =  sending_intervall
         if poll_intervall is not None:
@@ -65,10 +61,10 @@ class Serial_Socket(object):
             
         error, message = 0, ""
         self.__comport = port
-        if not self.connected:
+        if not self._connected:
             try:
-                ## connect serial
-                self.serial = serial.Serial(port=self.__comport,
+                ## connect _serial
+                self._serial = serial.Serial(port=self.__comport,
                                          baudrate=self.__baud,
                                          parity=self.__parity,
                                          stopbits=self.__stopbits,
@@ -79,23 +75,23 @@ class Serial_Socket(object):
                 message = str(e)
         else:
             error = 801
-            message = "already connected"
+            message = "already _connected"
         if not error == 0:
             return {"error_code":error, "error_description":message}
         else:
-            self.connected = True
+            self._connected = True
             self.startReceiving()
             self.startSending()
             self.startPolling()
             return {}
     
     def disconnectDrone(self):
-        if self.connected:
+        if self._connected:
             try:
-                self.connected = False
-                if self.serial is not None:
-                    self.serial.close()
-                    self.serial = None 
+                self._connected = False
+                if self._serial is not None:
+                    self._serial.close()
+                    self._serial = None 
             except Exception, e: 
                 traceback.print_exc()
                 return {"error_code":1, "error_description":str(e)}
@@ -123,9 +119,9 @@ class Serial_Socket(object):
     ##########################################################################################
     
     def _readData(self):
-        ''' Reading data from the serial port, interpretation data
+        ''' Reading data from the _serial port, interpretation data
         This function needs to be started in a thread''' 
-        while self.connected:
+        while self._connected:
             try:
                 reading = self.__readLine()
                 if reading is not None:
@@ -141,19 +137,19 @@ class Serial_Socket(object):
                         self.__handleAck(ackType)
                         LOGGER.debug("received: " + ackType + " " + key)
             except Exception, e:
-                LOGGER.error("Reading serial-data: " + str(e))
-                self.serial.flush()
+                LOGGER.error("Reading _serial-data: " + str(e))
+                self._serial.flush()
             time.sleep(READING_PAUSE)
            
-        if self.connected == False:
+        if self._connected == False:
             self._onConnectionClosed()
             
     def __readLine(self):
         result = None
         reading = ""
-        while result == None and self.connected:
+        while result == None and self._connected:
             try:
-                reading += self.serial.read(1)
+                reading += self._serial.read(1)
             except AttributeError, e:
                 print str(e)
                 break
@@ -162,7 +158,7 @@ class Serial_Socket(object):
             elif reading[:2] == ">a" and reading[-2:] == "a<":
                 reading = reading[2:-2]
                 result = reading, "ACK"
-        if self.connected:
+        if self._connected:
             return result
         else:
             return None
@@ -170,70 +166,37 @@ class Serial_Socket(object):
     def __handleAck(self, ackType):
         if ackType is not None:
             LOGGER.debug("ACK: " + ackType)
-            self.payload_socket.handle_ack(ackType)
-            self.uav_socket.handle_ack(ackType)
+            self._connecting_instanze.handle_ack(ackType)
         
     def __handleData(self, reading):
         data_msg = Message(reading)
         msgType = data_msg.msgType
-        if msgType == LLSTATUS:
-            typeName = "LLSTATUS"
-        elif msgType == CAM:
-            typeName = "CAM"
-        elif msgType == GPS:
-            typeName = "GPS"
-        elif msgType == GPSADV:
-            typeName = "GPSADV"
-        elif msgType == IMUCALC:
-            typeName = "IMUCALC"
-        elif msgType == RCDAT:
-            typeName = "RCDAT"
-        elif msgType == IMURAW:
-            typeName = "IMURAW"
-        elif msgType == CTRLOUT:
-            typeName = "CTRLOUT"
-        elif msgType == CURWAY:
-            typeName = "CURWAY"
-        elif msgType == X60:
-            typeName = "X60"
-        elif msgType == X61:
-            typeName = "X61"
-        elif msgType == X62:
-            typeName = "X62"
-        elif msgType == X64:
-            typeName = "X64"
-        else:
-            typeName = "OTHER"
         
-        data = data_msg.msgStruct
-        LOGGER.debug("RECEIVED (" + str(typeName) + ")  :" + str(data.encode("hex")))
-        
-        self.payload_socket.handle_data(data_msg)
-        self.uav_socket.handle_data(data_msg)
+        self._connecting_instanze.handle_data(msgType, data_msg)
     
     ##########################################################################################
-    ## writing data to serial bus (THREAD)
+    ## writing data to _serial bus (THREAD)
     ##########################################################################################
     
     def writeData(self, serial_message):
-        if self.connected:
+        if self._connected:
             while not self.__sendLock.acquire():
                 time.sleep(self.__sendingIntervall/100)
             LOGGER.debug("SENT: " + str(serial_message[3:].encode("hex")))
-            self.writeBuffer.append(serial_message)
+            self._writeBuffer.append(serial_message)
             self.__sendLock.release()
             return True
         else:
             return False
         
     def __sendNext(self):
-        if len(self.writeBuffer) > 0:
-            buffered =  self.writeBuffer.pop(0)
+        if len(self._writeBuffer) > 0:
+            buffered =  self._writeBuffer.pop(0)
             serial_message = buffered
-            self.serial.write(serial_message)
+            self._serial.write(serial_message)
         
     def _sendData(self):
-        while self.connected:
+        while self._connected:
             while not self.__sendLock.acquire():
                 time.sleep(self.__sendingIntervall/10)
             self.__sendNext()
@@ -246,7 +209,7 @@ class Serial_Socket(object):
     ##########################################################################################
     
     def _pollData(self):
-        while self.connected:
+        while self._connected:
             self.writeData(Command.getCmd_poll(LLSTATUS, IMUCALC, GPSADV, CAM))
             if self.__onMission:
                 self.writeData(Command.getCmd_poll(CURWAY))
