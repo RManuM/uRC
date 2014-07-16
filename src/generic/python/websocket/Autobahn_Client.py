@@ -73,7 +73,7 @@ class Autobahn_Client(ApplicationSession):
         
         self.LOGGER.info("starting components")
         self._startupComponents()
-        self.LOGGER.info("client ready")
+        self.LOGGER.info("client ready, session-ID=" + str(self._session_id))
 
     def onDisconnect(self):
         self.LOGGER.info("disconnected")
