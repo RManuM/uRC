@@ -7,8 +7,8 @@ Created on 02.07.2014
 import serial
 import traceback
 import threading
-from AscTec.Protocol import Message, Command, ACK_MAP
-from AscTec.Protocol import CAM, LLSTATUS, IMUCALC, GPS, GPSADV, IMURAW, RCDAT, CTRLOUT, CURWAY, X60, X61, X62, X64
+from AscTec.Serial_Protocol import Message, Command, ACK_MAP
+from AscTec.Serial_Protocol import CAM, LLSTATUS, IMUCALC, GPS, GPSADV, IMURAW, RCDAT, CTRLOUT, CURWAY, X60, X61, X62, X64
 import time
 import logging
 
@@ -25,7 +25,7 @@ POLL_INTERVALL = 1.5
 SENDING_INTERVALL = 0.3
 READING_PAUSE = 0.01
 
-class SerialSocket(object):
+class Serial_Socket(object):
     '''   This class offers a serial socket and pulls data from the drone   '''
     serial = None
     
