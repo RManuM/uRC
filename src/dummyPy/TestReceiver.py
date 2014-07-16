@@ -7,6 +7,7 @@ from generic.python.websocket.Autobahn_Client import Autobahn_Client
 import logging
 import time
 from autobahn.wamp import types
+from twisted.internet import threads
 
 class TestReceiver(Autobahn_Client):
     '''
@@ -34,12 +35,31 @@ class TestReceiver(Autobahn_Client):
         else:
             print "received message contains error", data
         
+    def handleRPC_new(self, data):
+        def execute(f, data):
+            result = threads.deferToThread(f, data)
+            print result
+        def function(data):
+            result = ""
+            if self._parser.parse("uRC.testing.receiver.rpc", data):
+                print "RPC: Data:" + str(data)
+                time.sleep(10)
+                result = "pong:" + str(data["index"])
+            else:
+                print "RPC: Data contains error: " + str(data)
+                result = "received rpc contains error"
+            return {"ping":result}
+        result = execute(function, data)
+        
+        return result
+
+         
     def handleRPC(self, data):
         def function(data):
             result = ""
             if self._parser.parse("uRC.testing.receiver.rpc", data):
                 print "RPC: Data:" + str(data)
-                time.sleep(3)
+                time.sleep(10)
                 result = "pong:" + str(data["index"])
             else:
                 print "RPC: Data contains error: " + str(data)
@@ -69,7 +89,7 @@ class TestReceiver_cp(Autobahn_Client):
             print "received: ", data
         else:
             print "received message contains error", data
-        
+
     def handleRPC(self, data):
         def function(data):
             result = ""
@@ -93,5 +113,5 @@ if __name__ == "__main__":
     from autobahn.twisted.choosereactor import install_reactor
     reactor = install_reactor()
     Autobahn_Client.startup_client_2(TestReceiver)
-    Autobahn_Client.startup_client_2(TestReceiver_cp)
+#     Autobahn_Client.startup_client_2(TestReceiver_cp)
     reactor.run()
