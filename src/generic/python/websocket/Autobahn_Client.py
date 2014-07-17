@@ -54,6 +54,7 @@ class Autobahn_Client(ApplicationSession):
         client = clientFromString(reactor, server_bindings)
         client.connect(transport_factory)
         
+        return session_factory
         
     @inlineCallbacks
     def onJoin(self, details):
@@ -94,6 +95,7 @@ class Autobahn_Client(ApplicationSession):
     def _startupComponents(self):
         signal.signal(signal.SIGINT, self.shutdown)
         self._parser = Autobahn_Dataparser(self.LOGGER, self.PARSER_FILE)
+        self.factory.instance = self
         
     def _handle_RPC(self, function, data):        
         self._rpcsToComplete +=1
