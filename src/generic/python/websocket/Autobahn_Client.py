@@ -80,9 +80,15 @@ class Autobahn_Client(ApplicationSession):
         reactor.stop()  # @UndefinedVariable FIXME: Actually this method exists
         
     def _initSubscriptions(self):
+        ''' Implement this function like:
+        self._subscriptions["SLOTNAME"] = self.method_name
+        for every slot'''
         pass
         
     def _initRpcs(self):
+        ''' Implement this function like:
+        self._rpcs["SLOTNAME"] = self.method_name
+        for every slot'''
         pass
 
     def _startupComponents(self):
