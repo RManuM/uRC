@@ -11,7 +11,7 @@ from AscTec.Serial_Protocol import Message, Command, ACK_MAP
 import time
 import logging
 
-LOGGER = logging.getLogger("falcon_serial_socket")
+LOGGER = logging.getLogger("Falcon(Serial-Socket)")
 
 BAUDRATE = 57600
 DATABITS = 8
@@ -77,7 +77,7 @@ class Serial_Socket(object):
             error = 801
             message = "already _connected"
         if not error == 0:
-            return {"error_code":error, "error_description":message}
+            raise Exception({"error_code":error, "error_description":message})
         else:
             self._connected = True
             self.startReceiving()
@@ -112,7 +112,6 @@ class Serial_Socket(object):
     def _onConnectionClosed(self):
         ''' Handling a closed connection (expected or unexpected)'''
         self.disconnectDrone()
-        self.abstractUAV.em_UAV_CONNECTION_CLOSED()
     
     ##########################################################################################
     ## Reading data (THREAD)

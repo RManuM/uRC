@@ -12,7 +12,7 @@ import logging
 from autobahn.twisted.choosereactor import install_reactor
 from generic.python.websocket.Autobahn_Client import Autobahn_Client
 
-COMPORT = 0
+COMPORT = 3
 
 class Falcon(object):
     '''
@@ -47,13 +47,15 @@ class Falcon(object):
             try:
                 self._serial_socket.connectDrone(port)
             except:
+                self.setReady(False)
                 self.LOGGER.error("no serialsocket available on port {}".format(port))
             else:
                 self.setReady(True)
         else:
-            self.LOGGER.error("No Websocket registered")
+            self.LOGGER.error("No Sensor-Websocket registered")
             
     def setReady(self, ready):
+        print "setting ready: {}".format(ready)
         self._ready = ready
         
     def ready(self):
@@ -96,6 +98,8 @@ class Falcon(object):
             return True ## TODO: ack when ack from drone? or when send? BUT ACK!
         else:
             self._cam_props["pitch"], self._cam_props["roll"], self._cam_props["yaw"] = pitch, roll, yaw
+            pitch, roll, yaw = self.getProps()
+            self._sensor_websocket.em_props(pitch, roll, yaw)
             print "SET_PROPS <<fallback>>"
             return True
         
@@ -110,9 +114,11 @@ class Falcon(object):
             typeName = "LLSTATUS"
         elif msgType == CAM:
             typeName = "CAM"
-            self._cam_props["pitch"] = msg["pitch"]
-            self._cam_props["roll"] = msg["roll"]
-            self._cam_props["yaw"] = 0.0
+            pitch, roll, yaw = msg["pitch"], msg["roll"], 0.0
+            self._cam_props["pitch"] = pitch
+            self._cam_props["roll"] = roll
+            self._cam_props["yaw"] = yaw
+            self._sensor_websocket.em_props(pitch, roll, yaw)
         elif msgType == GPS:
             typeName = "GPS"
         elif msgType == GPSADV:

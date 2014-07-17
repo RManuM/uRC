@@ -19,7 +19,8 @@ class Sensor_WebSocket(Autobahn_Client):
         Autobahn_Client.__init__(self, uRC_MODULE_NAME, PARSER_FILE, config=config)
     
         self._serial = None
-        self._connecting_instanze =Falcon.instance()
+        self._connecting_class = Falcon
+        self._connecting_instanze = self._connecting_class.instance()
         self._connecting_instanze.register_sensorSocket(self)
     
     def _initSubscriptions(self):
@@ -27,9 +28,6 @@ class Sensor_WebSocket(Autobahn_Client):
         
     def _initRpcs(self):
         Autobahn_Client._initRpcs(self)
-        self.__initRPCs_sensor()
-        
-    def __initRPCs_sensor(self):
         sID = str(self._session_id)
         self._rpcs["uRC.sensor.TRIGGER."+sID] = self.on_trigger
         self._rpcs["uRC.sensor.STATUS.GET."+sID] = self.on_status_get
@@ -79,16 +77,16 @@ class Sensor_WebSocket(Autobahn_Client):
         return self._handle_RPC(fkt, data)
         
     def em_trigger_complete(self):
-        ## TODO: this method is obviously missing
-        pass
+        self.publish("uRC.sensor.TRIGGER.COMPLETED")
     
     def em_trigger_error(self, code, message):
-        ## TODO: this method is obviously missing
-        pass
+        res = {"error_code":code, "error_message":message}
+        self.publish("uRC.sensor.TRIGGER.ERROR", res)
     
     def em_props(self, pitch, roll, yaw):
-        ## TODO: this method is obviously missing
-        pass
+        pitch, roll, yaw = self._connecting_instanze.getProps()
+        res =  {"orientation":{"pitch":pitch, "roll":roll, "yaw":yaw}}
+        self.publish("uRC.sensor.PROPS", res)
     
     def em_status(self, triggering):
         ## TODO: this method is obviously missing

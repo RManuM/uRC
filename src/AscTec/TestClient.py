@@ -7,10 +7,10 @@ from generic.python.websocket.Autobahn_Client import Autobahn_Client
 import logging
 from autobahn.twisted.choosereactor import install_reactor
 from autobahn.wamp import types
-from threading import Thread
 import time
+from threading import Thread
 
-SERVER_SESSION_ID = 8156516592859064
+SERVER_SESSION_ID = 59080039049823
 
 class TestClient(Autobahn_Client):
     def __init__(self, config=types.ComponentConfig(u"anonymous")):
@@ -18,9 +18,19 @@ class TestClient(Autobahn_Client):
         uRC_MODULE_NAME = "TestEmitter"
         Autobahn_Client.__init__(self, uRC_MODULE_NAME, PARSER_FILE)
         
+    def _initSubscriptions(self):
+        Autobahn_Client._initSubscriptions(self)
+        self._subscriptions["uRC.sensor.TRIGGER.COMPLETED"] = self.echo_data
+        self._subscriptions["uRC.sensor.TRIGGER.ERROR"] = self.echo_data
+        self._subscriptions["uRC.sensor.PROPS"] = self.echo_data
+        self._subscriptions["uRC.sensor.STATUS"] = self.echo_data
+        
     def _startupComponents(self):
         Autobahn_Client._startupComponents(self)
         Thread(target=do_some_calls, args=[self]).start()
+        
+    def echo_data(self, data):
+        print "data received: {}".format(data)
         
         
 def do_some_calls(parent):
