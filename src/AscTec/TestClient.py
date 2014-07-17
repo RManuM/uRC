@@ -10,7 +10,7 @@ from autobahn.wamp import types
 import time
 from threading import Thread
 
-SERVER_SESSION_ID = 59080039049823
+SERVER_SESSION_ID = 7559482794710710
 
 class TestClient(Autobahn_Client):
     def __init__(self, config=types.ComponentConfig(u"anonymous")):

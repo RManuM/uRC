@@ -7,7 +7,7 @@ from generic.python.websocket.Autobahn_Client import Autobahn_Client
 import logging
 from autobahn.wamp import types
 from autobahn.twisted.choosereactor import install_reactor
-from AscTec.Falcon import Falcon
+from autobahn.twisted.wamp import ApplicationSessionFactory
 
 class Sensor_WebSocket(Autobahn_Client):
     '''
@@ -17,11 +17,6 @@ class Sensor_WebSocket(Autobahn_Client):
         PARSER_FILE = "../config/definitions.xml"
         uRC_MODULE_NAME = "AscTec_Falcon"
         Autobahn_Client.__init__(self, uRC_MODULE_NAME, PARSER_FILE, config=config)
-    
-        self._serial = None
-        self._connecting_class = Falcon
-        self._connecting_instanze = self._connecting_class.instance()
-        self._connecting_instanze.register_sensorSocket(self)
     
     def _initSubscriptions(self):
         Autobahn_Client._initSubscriptions(self)
@@ -36,11 +31,19 @@ class Sensor_WebSocket(Autobahn_Client):
    
     def _startupComponents(self):
         Autobahn_Client._startupComponents(self)
-        
+    
+    def _falcon(self):
+        if self.factory.falcon_handler:
+            self.factory.falcon_handler.register_sensorSocket(self)
+            return self.factory.falcon_handler
+        else:
+            self.LOGGER.error("no Falcon-Management-Class given!")
+            return None
+    
     def on_trigger(self, data):
         def fkt(data):
             if self._parser.parse("uRC.sensor.TRIGGER", data):
-                return self._connecting_instanze.trigger()
+                return self._falcon().trigger()
             else:
                 raise Exception("no valid data")
         return self._handle_RPC(fkt, data)
@@ -49,7 +52,7 @@ class Sensor_WebSocket(Autobahn_Client):
         def fkt(data):
             if self._parser.parse("uRC.sensor.STATUS.GET", data):
                 ## FIXME: pack return params to struct
-                return self._connecting_instanze.getStatus()
+                return self._falcon().getStatus()
             else:
                 raise Exception("no valid data")
         return self._handle_RPC(fkt, data)
@@ -57,7 +60,7 @@ class Sensor_WebSocket(Autobahn_Client):
     def on_props_get(self, data):
         def fkt(data):
             if self._parser.parse("uRC.sensor.PROPS.GET", data):
-                pitch, roll, yaw = self._connecting_instanze.getProps()
+                pitch, roll, yaw = self._falcon().getProps()
                 return {"orientation":{"pitch":pitch, "roll":roll, "yaw":yaw}}
             else:
                 raise Exception("no valid data")
@@ -69,7 +72,7 @@ class Sensor_WebSocket(Autobahn_Client):
                 if data.has_key("orientation"):
                     orientation = data["orientation"]
                     pitch, roll, yaw = orientation["pitch"],  orientation["roll"],  orientation["yaw"]
-                    return self._connecting_instanze.setProps(pitch, roll, yaw)
+                    return self._falcon().setProps(pitch, roll, yaw)
                 else:
                     raise Exception("this module requires orientation")
             else:
@@ -84,13 +87,20 @@ class Sensor_WebSocket(Autobahn_Client):
         self.publish("uRC.sensor.TRIGGER.ERROR", res)
     
     def em_props(self, pitch, roll, yaw):
-        pitch, roll, yaw = self._connecting_instanze.getProps()
+        pitch, roll, yaw = self._falcon().getProps()
         res =  {"orientation":{"pitch":pitch, "roll":roll, "yaw":yaw}}
         self.publish("uRC.sensor.PROPS", res)
     
     def em_status(self, triggering):
         ## TODO: this method is obviously missing
         pass
+    
+class Sensor_WebSocket_Factory(ApplicationSessionFactory):
+    session = Sensor_WebSocket
+    def __init__(self, falcon_handler):
+        ApplicationSessionFactory.__init__(self)
+        self.falcon_handler = falcon_handler
+        
         
 if __name__ == "__main__":
     reactor = install_reactor()

@@ -3,35 +3,33 @@ Created on 16.07.2014
 
 @author: mend_ma
 '''
-from AscTec.Serial_Socket import Serial_Socket
-from AscTec.Serial_Protocol import Command
+from AscTec.Serial_Protocol import Command, ACK_MAP, Message
 from AscTec.Serial_Protocol import CAM, LLSTATUS, IMUCALC, GPS, GPSADV, IMURAW, RCDAT, CTRLOUT, CURWAY, X60, X61, X62, X64
-
 
 import logging
 from autobahn.twisted.choosereactor import install_reactor
-from generic.python.websocket.Autobahn_Client import Autobahn_Client
+from generic.python.serial.SocketWrapper import SocketWrapper
+from autobahn.twisted.websocket import WampWebSocketClientFactory
+from twisted.internet.endpoints import clientFromString
 
-COMPORT = 3
+COMPORT = 0
 
-class Falcon(object):
+class Serialhandler(object):
     '''
     classdocs
     '''
     
-    __instance = None
-    
-    @staticmethod
-    def instance():
-        if Falcon.__instance is None:
-            Falcon.__instance = Falcon()
-        return Falcon.__instance
-    
-    def __init__(self):
+    def __init__(self, comport):
         '''
         Constructor
         '''
-        self._serial_socket = Serial_Socket(self)
+        self.LOGGER = logging.getLogger("Falcon-Data-Handler")
+        try:
+            self._serial = SocketWrapper(comport)
+        except:
+            self._serial = None
+            self.LOGGER.error("serial could not be connected")
+            
         self._sensor_websocket = None
         
         ## properties
@@ -40,22 +38,9 @@ class Falcon(object):
         
         self._ready = False
         
-        self.LOGGER = logging.getLogger("Falcon-Data-Handler")
-        
-    def connectUAV(self, port):
-        if self._sensor_websocket is not None:
-            try:
-                self._serial_socket.connectDrone(port)
-            except:
-                self.setReady(False)
-                self.LOGGER.error("no serialsocket available on port {}".format(port))
-            else:
-                self.setReady(True)
-        else:
-            self.LOGGER.error("No Sensor-Websocket registered")
+        self.LOGGER.info("Datahandler started")
             
     def setReady(self, ready):
-        print "setting ready: {}".format(ready)
         self._ready = ready
         
     def ready(self):
@@ -63,14 +48,15 @@ class Falcon(object):
         
     def register_sensorSocket(self, socket):
         self._sensor_websocket = socket
-        self.connectUAV(COMPORT)
+        if self._serial is not None:
+            self.setReady(True)
         
     ####################################### SLOTS for requests from Websocket (Camera)
     
     def trigger(self):
         if self.ready():
             cmd = Command.getCmd_triggerCam()
-            self._serial_socket.writeData(cmd)
+            self._serial.write_message(cmd.get_binary())
             return True ## TODO: ack when ack from drone? or when send? BUT ACK!
         else:
             print "TRIGGER <<fallback>>"
@@ -94,7 +80,7 @@ class Falcon(object):
     def setProps(self, pitch, roll, yaw):
         if self.ready():
             cmd = Command.getCmd_setCam(pitch, roll)
-            self._serial_socket.writeData(cmd)
+            self._serial.write_message(cmd.get_binary())
             return True ## TODO: ack when ack from drone? or when send? BUT ACK!
         else:
             self._cam_props["pitch"], self._cam_props["roll"], self._cam_props["yaw"] = pitch, roll, yaw
@@ -104,7 +90,39 @@ class Falcon(object):
             return True
         
     ####################################### Handling answers from Serialsocket
-        
+      
+    def _readData(self):
+        ''' Reading data from the _serial port, interpretation data
+        This function needs to be started in a thread''' 
+        while self._connected:
+            reading = self._readLine()
+            if reading is not None:
+                msg, msgType = reading
+                if msgType == "MSG":
+                    self.handle_data(Message(msg))
+                elif msgType == "ACK":
+                    key = "0x"+msg.encode("hex")
+                    if ACK_MAP.has_key(key):
+                        ackType = ACK_MAP[key]
+                    else:
+                        ackType = None
+                    self.handle_ack(ackType)
+            
+    def _readLine(self):
+        result = None
+        reading = ""
+        while result == None:
+            try:
+                reading += self._serial.read(1)
+            except AttributeError, e:
+                print str(e)
+                break
+            if reading[:3] == ">*>" and reading[-3:] == "<#<":
+                result = reading[:-3], "MSG"
+            elif reading[:2] == ">a" and reading[-2:] == "a<":
+                reading = reading[2:-2]
+                result = reading, "ACK"
+        return result
         
     def handle_ack(self, ackType):
         print "ack rcv"
@@ -150,9 +168,15 @@ class Falcon(object):
 if __name__ == "__main__":
     reactor = install_reactor()
     logging.basicConfig(level=logging.INFO)
-    falcon = Falcon.instance()
+    server_url="ws://localhost:8080/ws"
+    server_bindings="tcp:localhost:8080"
     
-    from AscTec.Sensor_WebSocket import Sensor_WebSocket
-    Autobahn_Client.startup_client_2(Sensor_WebSocket)
+    ## starting up falcon socket!
+    from AscTec.Sensor_WebSocket import Sensor_WebSocket_Factory
+    falcon = Serialhandler(COMPORT)
+    sensor_session = Sensor_WebSocket_Factory(falcon)
+    transport_factory = WampWebSocketClientFactory(sensor_session, server_url)
+    client = clientFromString(reactor, server_bindings)
+    client.connect(transport_factory)
     
     reactor.run()

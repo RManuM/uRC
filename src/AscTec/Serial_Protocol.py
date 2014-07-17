@@ -239,6 +239,9 @@ class Command:
         
         return cmdStruct
     
+    def get_binary(self):
+        return self.getCmdStruct()
+    
 #####################################################################################################################
 
 class Message:

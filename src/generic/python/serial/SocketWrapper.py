@@ -51,17 +51,16 @@ class SocketWrapper(serial.Serial):
     ### External Controll
     #########################################################################
     
-    def read_message(self):
+    def read_byte(self):
         self.__waitfor(self.__rcvBufferLock, self.__rcvBufferNotifyer)
-        data = self._receiveBuffer
-        self._receiveBuffer = []
+        byte = self._receiveBuffer.pop(0)
         self.__release(self.__rcvBufferLock, self.__rcvBufferNotifyer)
-        return data
+        return byte
     
     def write_message(self, serial_string):
         if self._connected:
             self.__waitfor(self.__sendBufferLock, self.__sendBufferNotifyer)
-            self._writeBuffer.append(serial_string)
+            self._sendingBuffer.append(serial_string)
             self.__release(self.__sendBufferLock, self.__sendBufferNotifyer)
             LOGGER.debug("SENT: " + str(serial_string.encode("hex")))
             return True
@@ -99,8 +98,8 @@ class SocketWrapper(serial.Serial):
     #########################################################################
         
     def __sendNext(self):
-        if len(self._writeBuffer) > 0:
-            buffered =  self._writeBuffer.pop(0)
+        if len(self._sendingBuffer) > 0:
+            buffered =  self._sendingBuffer.pop(0)
             serial_message = buffered
             self.write(serial_message)
         
