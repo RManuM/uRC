@@ -7,6 +7,8 @@ import serial
 import threading
 import logging
 
+TIME_SLICE = 0.001
+
 BAUDRATE = 57600
 DATABITS = 8
 STOPBITS = 1
@@ -53,7 +55,10 @@ class SocketWrapper(serial.Serial):
     
     def read_byte(self):
         self.__waitfor(self.__rcvBufferLock, self.__rcvBufferNotifyer)
-        byte = self._receiveBuffer.pop(0)
+        if len(self._receiveBuffer) > 0:
+            byte = self._receiveBuffer.pop(0)
+        else:
+            byte = ""
         self.__release(self.__rcvBufferLock, self.__rcvBufferNotifyer)
         return byte
     
@@ -66,6 +71,10 @@ class SocketWrapper(serial.Serial):
             return True
         else:
             return False
+        
+    def flush(self, *args, **kwargs):
+        self._receiveBuffer = []
+        return serial.Serial.flush(self, *args, **kwargs)
         
     def close(self):
         self._connected = False
@@ -82,7 +91,7 @@ class SocketWrapper(serial.Serial):
             reading = None
             self.__waitfor(self.__serialLock, self.__serialNotifyer)
             try:
-                reading = self.read()
+                reading = self.read(1)
             except Exception, e:
                 LOGGER.error("Reading _serial-data: " + str(e))
                 self.flush()
@@ -102,6 +111,7 @@ class SocketWrapper(serial.Serial):
             buffered =  self._sendingBuffer.pop(0)
             serial_message = buffered
             self.write(serial_message)
+            self.flush()
         
     def _sendData(self):
         while self._connected:
