@@ -10,7 +10,7 @@ from autobahn.wamp import types
 import time
 from threading import Thread
 
-SERVER_SESSION_ID = 3488051046851441
+SERVER_SESSION_ID = 6203236407137233
 
 class TestClient(Autobahn_Client):
     def __init__(self, config=types.ComponentConfig(u"anonymous")):
@@ -42,7 +42,7 @@ def do_some_calls(parent):
     print "props get:",parent.remoteCall("uRC.sensor.PROPS.GET." + str(SERVER_SESSION_ID), {})
     time.sleep(1)
     print "props set:",parent.remoteCall("uRC.sensor.PROPS.SET." + str(SERVER_SESSION_ID), 
-                                         {"orientation":{"pitch":0.0, "roll":0.0, "yaw":0.0}})
+                                         {"orientation":{"pitch":45.0, "roll":0.0, "yaw":0.0}})
     time.sleep(1)
     print "props get:",parent.remoteCall("uRC.sensor.PROPS.GET." + str(SERVER_SESSION_ID), {})
     print "waiting to close..."

@@ -74,7 +74,7 @@ class Serialhandler(object):
         if self.ready():
             cmd = Command.getCmd_triggerCam()
             self._serial.write_message(cmd)
-            return True ## TODO: ack when ack from drone? or when send? BUT ACK!
+            return True
         else:
             print "TRIGGER <<fallback>>"
             return True
@@ -100,8 +100,12 @@ class Serialhandler(object):
         self.LOGGER.info("setProps")
         if self.ready():
             cmd = Command.getCmd_setCam(pitch, roll)
-            self._serial.write_message(cmd)
-            return True ## TODO: ack when ack from drone? or when send? BUT ACK!
+            try:
+                self._serial.write_message(cmd)
+            except:
+                return False
+            else:
+                return True ## TODO: ack when ack from drone? or when send? BUT ACK!
         else:
             self._cam_props["pitch"], self._cam_props["roll"], self._cam_props["yaw"] = pitch, roll, yaw
             self._sensor_websocket.em_props(pitch, roll, yaw)
@@ -152,7 +156,7 @@ class Serialhandler(object):
         return result
         
     def handle_ack(self, ackType):
-        print "ack rcv"
+        print "ack rcv", ackType
         
     def handle_data(self, message):
         msgType = message.msgType
@@ -164,11 +168,12 @@ class Serialhandler(object):
             typeName = "CAM"
             if msgData is not None:
                 pitch, roll, yaw = msgData["pitch"], msgData["roll"], 0.0
-                self._cam_props["pitch"] = pitch
-                self._cam_props["roll"] = roll
-                self._cam_props["yaw"] = yaw
-                print "CAM - CAM - CAM", self._cam_props
-                self._sensor_websocket.em_props(pitch, roll, yaw)
+                pitch_o, roll_o, yaw_o =  self._cam_props["pitch"], self._cam_props["roll"], self._cam_props["yaw"]
+                if not (pitch_o == pitch and roll_o == roll and yaw_o == yaw):
+                    self._cam_props["pitch"] = pitch
+                    self._cam_props["roll"] = roll
+                    self._cam_props["yaw"] = yaw
+                    self._sensor_websocket.em_props(pitch, roll, yaw)
         elif msgType == GPS:
             typeName = "GPS"
         elif msgType == GPSADV:
