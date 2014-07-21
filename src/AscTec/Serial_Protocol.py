@@ -239,9 +239,6 @@ class Command:
         
         return cmdStruct
     
-    def get_binary(self):
-        return self.getCmdStruct()
-    
 #####################################################################################################################
 
 class Message:
@@ -267,14 +264,17 @@ class Message:
         if not (byteString[:3]==">*>"):
             #return False
             raise Exception("Incomplete Message!!!"+byteString)
-        lengthOfStruct = struct.unpack(USHORT,byteString[3:5])[0]
-        if not lengthOfStruct == len(byteString[6:-2]):
+        if not (byteString[-3:]=="<#<"):
             #return False
-            print "Length: "+str(lengthOfStruct)+"/"+str(len(byteString[6:-2]))
+            raise Exception("Incomplete Message!!!"+byteString)
+        lengthOfStruct = struct.unpack(USHORT,byteString[3:5])[0]
+        if not lengthOfStruct == len(byteString[6:-5]):
+            #return False
+            print "Length: "+str(lengthOfStruct)+"/"+str(len(byteString[6:-5]))
             raise Exception("Length of MsgStruct not correct!!!")
-        msgStruct = byteString[6:-2]
+        msgStruct = byteString[6:-5]
         msgType = byteString[5:6]
-        if not self.crc16(msgStruct)==byteString[-2:]:
+        if not self.crc16(msgStruct)==byteString[-5:-3]:
             #return False
             raise Exception("CRC16 not correct!!!") 
             
@@ -320,10 +320,12 @@ class Message:
         elif self.msgType == CAM:
             #print self.msgStruct.encode("hex")
             camangle        = float(struct.unpack(SHORT,self.msgStruct[8:10])[0])/100 
-            rollAngle       = None #float(struct.unpack(SHORT,self.msgStruct[10:12])[0])/100 
+            rollAngle       = 0.0 #float(struct.unpack(SHORT,self.msgStruct[10:12])[0])/100 
             #if struct.unpack(INT,self.msgStruct[0:4])[0]==0: ### an dieser Stelle wird urberprueft, ob es sich um eine normale message handelt, oder so eine sondermessage bei der kein camangle enthalten ist.
             if not (abs(camangle) >= 200.0): ## excluding packages containing non-relevant information
                 result =  {"pitch":camangle, "roll":rollAngle}#camangle
+            else:
+                result = None
             
         elif self.msgType == X60: # Link-Quality
             rxL = self.msgStruct[0]

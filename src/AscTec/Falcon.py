@@ -11,8 +11,9 @@ from autobahn.twisted.choosereactor import install_reactor
 from generic.python.serial.SocketWrapper import SocketWrapper
 from autobahn.twisted.websocket import WampWebSocketClientFactory
 from twisted.internet.endpoints import clientFromString
+from threading import Thread
 
-COMPORT = 0
+COMPORT = 3
 
 class Serialhandler(object):
     '''
@@ -24,21 +25,34 @@ class Serialhandler(object):
         Constructor
         '''
         self.LOGGER = logging.getLogger("Falcon-Data-Handler")
-        try:
-            self._serial = SocketWrapper(comport)
-        except:
-            self._serial = None
-            self.LOGGER.error("serial could not be connected")
             
         self._sensor_websocket = None
+        self._serial = None
         
         ## properties
         self._cam_props = {"pitch":0, "roll":0, "yaw":0}
         self._cam_status = {"triggering":False}
         
+        self._comport = comport
         self._ready = False
+        self._connected = False
         
         self.LOGGER.info("Datahandler started")
+        
+    def _connect(self, comport):
+        try:
+            self._serial = SocketWrapper(comport)
+        except:
+            self._serial = None
+            self.LOGGER.error("serial could not be connected")
+        else:
+            self._connected = True
+            Thread(target=self._readData).start()
+            self.LOGGER.info("serial connected, comport:{}".format(comport))
+            
+    def _disconnect(self):
+        self._connected = False
+        self._serial = None
             
     def setReady(self, ready):
         self._ready = ready
@@ -48,21 +62,25 @@ class Serialhandler(object):
         
     def register_sensorSocket(self, socket):
         self._sensor_websocket = socket
+        if self._serial is None:
+            self._connect(self._comport)
         if self._serial is not None:
             self.setReady(True)
         
     ####################################### SLOTS for requests from Websocket (Camera)
     
     def trigger(self):
+        self.LOGGER.info("trigger")
         if self.ready():
             cmd = Command.getCmd_triggerCam()
-            self._serial.write_message(cmd.get_binary())
+            self._serial.write_message(cmd)
             return True ## TODO: ack when ack from drone? or when send? BUT ACK!
         else:
             print "TRIGGER <<fallback>>"
             return True
         
     def getStatus(self):
+        self.LOGGER.info("getStatus")
         if self.ready():
             pass
             ## TODO: actually implement fkt
@@ -70,6 +88,7 @@ class Serialhandler(object):
             print "GET_STATUS <<fallback>>"
     
     def getProps(self):
+        self.LOGGER.info("getProps")
         if self.ready():
             pass ## Nothing to do here, because values are getting polled from the UAV
         else:
@@ -78,13 +97,13 @@ class Serialhandler(object):
         return pitch, roll, yaw
     
     def setProps(self, pitch, roll, yaw):
+        self.LOGGER.info("setProps")
         if self.ready():
             cmd = Command.getCmd_setCam(pitch, roll)
-            self._serial.write_message(cmd.get_binary())
+            self._serial.write_message(cmd)
             return True ## TODO: ack when ack from drone? or when send? BUT ACK!
         else:
             self._cam_props["pitch"], self._cam_props["roll"], self._cam_props["yaw"] = pitch, roll, yaw
-            pitch, roll, yaw = self.getProps()
             self._sensor_websocket.em_props(pitch, roll, yaw)
             print "SET_PROPS <<fallback>>"
             return True
@@ -99,7 +118,12 @@ class Serialhandler(object):
             if reading is not None:
                 msg, msgType = reading
                 if msgType == "MSG":
-                    self.handle_data(Message(msg))
+                    try:
+                        message = Message(msg)
+                    except Exception as e:
+                        self.LOGGER.error("unvalid message received:{} -- data:{}".format(e,msg.encode("hex")))
+                    else:
+                        self.handle_data(message)
                 elif msgType == "ACK":
                     key = "0x"+msg.encode("hex")
                     if ACK_MAP.has_key(key):
@@ -112,13 +136,16 @@ class Serialhandler(object):
         result = None
         reading = ""
         while result == None:
-            try:
-                reading += self._serial.read(1)
-            except AttributeError, e:
-                print str(e)
-                break
+            sign = self._serial.read_byte()
+            reading += sign
+            
+            if len(reading)>=6:
+                if reading[:3] == ">*>" and reading[-3:] == ">*>":
+                    self.LOGGER.error("dropped message {}".format(reading[:-3].encode("hex")))
+                    reading = reading[-3:]
+                
             if reading[:3] == ">*>" and reading[-3:] == "<#<":
-                result = reading[:-3], "MSG"
+                result = reading, "MSG"
             elif reading[:2] == ">a" and reading[-2:] == "a<":
                 reading = reading[2:-2]
                 result = reading, "ACK"
@@ -127,16 +154,21 @@ class Serialhandler(object):
     def handle_ack(self, ackType):
         print "ack rcv"
         
-    def handle_data(self, msgType, msg):
+    def handle_data(self, message):
+        msgType = message.msgType
+        msgData = message.getParams()
+        self.LOGGER.debug("Serial-Data:\nType:{}\nData:{}\nHEX:{}\n--------------".format(msgType.encode("hex"), msgData, str(msgData).encode("hex")))
         if msgType == LLSTATUS:
             typeName = "LLSTATUS"
         elif msgType == CAM:
             typeName = "CAM"
-            pitch, roll, yaw = msg["pitch"], msg["roll"], 0.0
-            self._cam_props["pitch"] = pitch
-            self._cam_props["roll"] = roll
-            self._cam_props["yaw"] = yaw
-            self._sensor_websocket.em_props(pitch, roll, yaw)
+            if msgData is not None:
+                pitch, roll, yaw = msgData["pitch"], msgData["roll"], 0.0
+                self._cam_props["pitch"] = pitch
+                self._cam_props["roll"] = roll
+                self._cam_props["yaw"] = yaw
+                print "CAM - CAM - CAM", self._cam_props
+                self._sensor_websocket.em_props(pitch, roll, yaw)
         elif msgType == GPS:
             typeName = "GPS"
         elif msgType == GPSADV:
@@ -161,7 +193,6 @@ class Serialhandler(object):
             typeName = "X64"
         else:
             typeName = "OTHER"
-            
         self.LOGGER.debug("handled msg-type: " + str(typeName))
         
         

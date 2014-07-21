@@ -31,6 +31,7 @@ class Sensor_WebSocket(Autobahn_Client):
    
     def _startupComponents(self):
         Autobahn_Client._startupComponents(self)
+        self._falconInstance = self._falcon()
     
     def _falcon(self):
         if self.factory.falcon_handler:
@@ -87,7 +88,6 @@ class Sensor_WebSocket(Autobahn_Client):
         self.publish("uRC.sensor.TRIGGER.ERROR", res)
     
     def em_props(self, pitch, roll, yaw):
-        pitch, roll, yaw = self._falcon().getProps()
         res =  {"orientation":{"pitch":pitch, "roll":roll, "yaw":yaw}}
         self.publish("uRC.sensor.PROPS", res)
     
